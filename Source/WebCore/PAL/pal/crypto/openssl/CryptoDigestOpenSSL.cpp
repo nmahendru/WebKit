@@ -111,10 +111,9 @@ CryptoDigest::~CryptoDigest()
 {
 }
 
-std::unique_ptr<CryptoDigest> CryptoDigest::create(CryptoDigest::Algorithm algorithm)
+static unique_ptr<CryptoDigest> createCryptoDigest(CryptoDigest::Algorithm algorithm)
 {
-    std::unique_ptr<CryptoDigest> digest(new CryptoDigest);
-
+    std::unique_ptr<CryptoDigest> digest = WTF::makeUnique<CryptoDigest>();
     switch (algorithm) {
     case CryptoDigest::Algorithm::SHA_1:
         digest->m_context = CryptoDigestContextImpl<SHA_CTX, SHA1Functions>::create();
@@ -132,8 +131,12 @@ std::unique_ptr<CryptoDigest> CryptoDigest::create(CryptoDigest::Algorithm algor
         digest->m_context = CryptoDigestContextImpl<SHA512_CTX, SHA512Functions>::create();
         return digest;
     }
-
     return nullptr;
+}
+
+std::unique_ptr<CryptoDigest> CryptoDigest::create(CryptoDigest::Algorithm algorithm)
+{
+    return createCryptoDigest(algorithm);
 }
 
 void CryptoDigest::addBytes(const void* input, size_t length)
@@ -146,6 +149,17 @@ Vector<uint8_t> CryptoDigest::computeHash()
 {
     ASSERT(m_context);
     return m_context->computeHash();
+}
+
+std::optional<Vector<uint8_t>> CryptoDigest::computeHash(CryptoDigest::Algorithm algo, const Vector<uint8_t>& data, bool)
+{
+    std::unique_ptr<CryptoDigest> digest = createCryptoDigest(algo);
+    if (!digest)
+        return { };
+    if (!digest->m_context)
+        return { };
+    digest->m_context->addBytes(data.data(), data.size());
+    return digest->m_context->computeHash();
 }
 
 } // namespace PAL
