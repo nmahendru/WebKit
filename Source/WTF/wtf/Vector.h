@@ -666,7 +666,7 @@ struct UnsafeVectorOverflow {
 };
 
 // Template default values are in Forward.h.
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 class Vector : private VectorBuffer<T, inlineCapacity, Malloc> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Vector);
 private:
@@ -783,16 +783,21 @@ public:
         asanSetBufferSizeToFullCapacity(0);
     }
 
-    Vector(const Vector&);
-    template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-    explicit Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&);
+    Vector(const Vector&) requires(isCopyable == IsCopyable::Yes);
 
-    Vector& operator=(const Vector&);
     template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-    Vector& operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&);
+    explicit Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&) requires(isCopyable == IsCopyable::Yes);
+
+    Vector& operator=(const Vector&)requires(isCopyable == IsCopyable::Yes);
+
+    template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
+    Vector& operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&) requires(isCopyable == IsCopyable::Yes);
 
     Vector(Vector&&);
     Vector& operator=(Vector&&);
+
+    template<IsCopyable otherIsCopyable>
+    Vector(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, otherIsCopyable>&&);
 
     size_t size() const { return m_size; }
     size_t sizeInBytes() const { return static_cast<size_t>(m_size) * sizeof(T); }
@@ -929,7 +934,7 @@ public:
 
     MallocPtr<T, Malloc> releaseBuffer();
 
-    void swap(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& other)
+    void swap(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& other)
     {
 #if ASAN_ENABLED
         if (this == std::addressof(other)) // ASan will crash if we try to restrict access to the same buffer twice.
@@ -983,7 +988,7 @@ private:
     template<typename MapFunction, typename DestinationVectorType, typename SourceType, typename Enable> friend struct CompactMapper;
     template<typename DestinationItemType, typename Collection> friend Vector<DestinationItemType> copyToVectorOf(const Collection&);
     template<typename Collection> friend Vector<typename CopyOrMoveToVectorResult<Collection>::Type> copyToVector(const Collection&);
-    template<typename U, size_t otherInlineCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc> friend class Vector;
+    template<typename U, size_t otherInlineCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc, IsCopyable otherIsCopyable> friend class Vector;
     template<typename DestinationVector, typename Collection> friend DestinationVector copyToVectorSpecialization(const Collection&);
 
     template<size_t position, typename U, typename... Items>
@@ -1022,8 +1027,8 @@ private:
 #endif
 };
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(const Vector& other)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector& other) requires(isCopyable == IsCopyable::Yes)
     : Base(other.size(), other.size())
 {
     asanSetInitialBufferSizeTo(other.size());
@@ -1032,9 +1037,10 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(const Ve
         TypeOperations::uninitializedCopy(other.begin(), other.end(), begin());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+ 
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other) requires(isCopyable == IsCopyable::Yes)
     : Base(other.size(), other.size())
 {
     asanSetInitialBufferSizeTo(other.size());
@@ -1043,8 +1049,8 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(const Ve
         TypeOperations::uninitializedCopy(other.begin(), other.end(), begin());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::operator=(const Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& other)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& other) requires(isCopyable == IsCopyable::Yes)
 {
     if (&other == this)
         return *this;
@@ -1068,9 +1074,9 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlin
 
 inline bool typelessPointersAreEqual(const void* a, const void* b) { return a == b; }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other) requires(isCopyable == IsCopyable::Yes)
 {
     // If the inline capacities match, we should call the more specific
     // template.  If the inline capacities don't match, the two objects
@@ -1094,14 +1100,20 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlin
     return *this;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::Vector(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>&& other)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>&& other)
     : Base(WTFMove(other))
 {
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::operator=(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>&& other)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+template<IsCopyable otherIsCopyable>
+inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, otherIsCopyable>&& other)
+    : Base(WTFMove(other))
+{
+}
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>&& other)
 {
     if (m_size)
         VectorTypeOperations<T>::destruct(begin(), end());
@@ -1117,16 +1129,16 @@ inline Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& Vector<T
     return *this;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::contains(const U& value) const
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::contains(const U& value) const
 {
     return find(value) != notFound;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::findIf(const MatchFunction& matches) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::findIf(const MatchFunction& matches) const
 {
     for (size_t i = 0; i < size(); ++i) {
         if (matches(at(i)))
@@ -1135,18 +1147,18 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::findIf(c
     return notFound;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable >
 template<typename U>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::find(const U& value) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::find(const U& value) const
 {
     return findIf([&](auto& item) {
         return item == value;
     });
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFind(const U& value) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::reverseFind(const U& value) const
 {
     for (size_t i = 1; i <= size(); ++i) {
         const size_t index = size() - i;
@@ -1156,9 +1168,9 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseF
     return notFound;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFindIf(const MatchFunction& matches) const
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::reverseFindIf(const MatchFunction& matches) const
 {
     for (size_t i = 1; i <= size(); ++i) {
         const size_t index = size() - i;
@@ -1168,9 +1180,9 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseF
     return notFound;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendIfNotContains(const U& value)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendIfNotContains(const U& value)
 {
     if (contains(value))
         return false;
@@ -1178,8 +1190,8 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendIfNo
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::fill(const T& val, size_t newSize)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::fill(const T& val, size_t newSize)
 {
     if (size() > newSize)
         shrink(newSize);
@@ -1196,9 +1208,9 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::fill(const
     m_size = newSize;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename Iterator>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendRange(Iterator start, Iterator end)
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendRange(Iterator start, Iterator end)
 {
     using category = typename std::iterator_traits<Iterator>::iterator_category;
     static_assert(std::is_base_of_v<std::input_iterator_tag, category>);
@@ -1214,25 +1226,25 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendRang
     }
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename Functor, typename>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendUsingFunctor(size_t size, const Functor& valueGenerator)
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendUsingFunctor(size_t size, const Functor& valueGenerator)
 {
     reserveCapacity(this->size() + size);
     for (size_t i = 0; i < size; ++i)
         unsafeAppendWithoutCapacityCheck(valueGenerator(i));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::expandCapacity(size_t newMinCapacity)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::expandCapacity(size_t newMinCapacity)
 {
     return reserveCapacity<action>(std::max(newMinCapacity, std::max(static_cast<size_t>(minCapacity), capacity() + capacity() / 4 + 1)));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action>
-NEVER_INLINE T* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::expandCapacity(size_t newMinCapacity, T* ptr)
+NEVER_INLINE T* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::expandCapacity(size_t newMinCapacity, T* ptr)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     if (ptr < begin() || ptr >= end()) {
@@ -1254,9 +1266,9 @@ NEVER_INLINE T* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>:
     return begin() + index;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename U>
-inline U* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::expandCapacity(size_t newMinCapacity, U* ptr)
+inline U* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::expandCapacity(size_t newMinCapacity, U* ptr)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     bool success = expandCapacity<action>(newMinCapacity);
@@ -1268,8 +1280,8 @@ inline U* Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::expan
     return ptr;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::resize(size_t size)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::resize(size_t size)
 {
     if (size <= m_size) {
         TypeOperations::destruct(begin() + size, end());
@@ -1285,15 +1297,15 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::res
     m_size = size;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::resizeToFit(size_t size)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::resizeToFit(size_t size)
 {
     reserveCapacity(size);
     resize(size);
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::shrink(size_t size)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::shrink(size_t size)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(size <= m_size);
     TypeOperations::destruct(begin() + size, end());
@@ -1301,9 +1313,9 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::shrink(siz
     m_size = size;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction failureAction>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::growImpl(size_t size)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::growImpl(size_t size)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(size >= m_size);
     if (size > capacity()) {
@@ -1320,8 +1332,8 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::growImpl(s
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asanSetInitialBufferSizeTo(size_t size)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::asanSetInitialBufferSizeTo(size_t size)
 {
 #if ASAN_ENABLED
     if (!buffer())
@@ -1336,8 +1348,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asa
 #endif
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asanSetBufferSizeToFullCapacity(size_t size)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::asanSetBufferSizeToFullCapacity(size_t size)
 {
 #if ASAN_ENABLED
     if (!buffer())
@@ -1350,8 +1362,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asa
 #endif
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asanBufferSizeWillChangeTo(size_t newSize)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::asanBufferSizeWillChangeTo(size_t newSize)
 {
 #if ASAN_ENABLED
     if (!buffer())
@@ -1366,9 +1378,9 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::asa
 #endif
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reserveCapacity(size_t newCapacity)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::reserveCapacity(size_t newCapacity)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     if (newCapacity <= capacity())
@@ -1395,9 +1407,9 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reserveCap
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reserveInitialCapacity(size_t initialCapacity)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::reserveInitialCapacity(size_t initialCapacity)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     ASSERT_WITH_SECURITY_IMPLICATION(!m_size);
@@ -1407,9 +1419,9 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::res
     return Base::template allocateBuffer<action>(initialCapacity);
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::growCapacityBy(size_t increment)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::growCapacityBy(size_t increment)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     unsigned increment32 = static_cast<unsigned>(increment);
@@ -1424,8 +1436,8 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::growCapaci
     return reserveCapacity<action>(newCapacity);
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::shrinkCapacity(size_t newCapacity)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::shrinkCapacity(size_t newCapacity)
 {
     if (newCapacity >= capacity())
         return;
@@ -1455,9 +1467,9 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::shrinkCapa
     asanSetInitialBufferSizeTo(size());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename U, size_t Extent>
-ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::append(std::span<const U, Extent> data)
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::append(std::span<const U, Extent> data)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     auto dataSize = data.size();
@@ -1487,9 +1499,9 @@ ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::unsafeAppendWithoutCapacityCheck(const U* data, size_t dataSize)
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::unsafeAppendWithoutCapacityCheck(const U* data, size_t dataSize)
 {
     if (!dataSize)
         return true;
@@ -1504,9 +1516,9 @@ ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename U>
-ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::append(U&& value)
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::append(U&& value)
 {
     if (size() != capacity()) {
         asanBufferSizeWillChangeTo(m_size + 1);
@@ -1518,9 +1530,9 @@ ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     return appendSlowCase<action, U>(std::forward<U>(value));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename... Args>
-ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::constructAndAppend(Args&&... args)
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::constructAndAppend(Args&&... args)
 {
     if (size() != capacity()) {
         asanBufferSizeWillChangeTo(m_size + 1);
@@ -1532,9 +1544,9 @@ ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     return constructAndAppendSlowCase<action>(std::forward<Args>(args)...);
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename U>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendSlowCase(U&& value)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendSlowCase(U&& value)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     ASSERT_WITH_SECURITY_IMPLICATION(size() == capacity());
@@ -1553,9 +1565,9 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendSlow
     return true;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<FailureAction action, typename... Args>
-bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::constructAndAppendSlowCase(Args&&... args)
+bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::constructAndAppendSlowCase(Args&&... args)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
     ASSERT_WITH_SECURITY_IMPLICATION(size() == capacity());
@@ -1577,9 +1589,9 @@ bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::constructA
 // This version of append saves a branch in the case where you know that the
 // vector's capacity is large enough for the append to succeed.
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::unsafeAppendWithoutCapacityCheck(U&& value)
+ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::unsafeAppendWithoutCapacityCheck(U&& value)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(size() < capacity());
 
@@ -1589,16 +1601,16 @@ ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     ++m_size;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>& val)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>& val)
 {
     append(val.span());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&& val)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&& val)
 {
     size_t newSize = m_size + val.size();
     if (newSize > capacity())
@@ -1607,9 +1619,9 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::app
         unsafeAppendWithoutCapacityCheck(WTFMove(item));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insert(size_t position, const U* data, size_t dataSize)
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::insert(size_t position, const U* data, size_t dataSize)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(position <= size());
     size_t newSize = m_size + dataSize;
@@ -1626,9 +1638,9 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insert(siz
     m_size = newSize;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insert(size_t position, U&& value)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::insert(size_t position, U&& value)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(position <= size());
 
@@ -1646,8 +1658,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::ins
     ++m_size;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insertFill(size_t position, const T& data, size_t dataSize)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::insertFill(size_t position, const T& data, size_t dataSize)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(position <= size());
     size_t newSize = m_size + dataSize;
@@ -1664,15 +1676,15 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insertFill
     m_size = newSize;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U, size_t c, typename OH, size_t m, typename M>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::insertVector(size_t position, const Vector<U, c, OH, m, M>& val)
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::insertVector(size_t position, const Vector<U, c, OH, m, M>& val)
 {
     insert(position, val.begin(), val.size());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::remove(size_t position)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::remove(size_t position)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(position < size());
     T* spot = begin() + position;
@@ -1682,8 +1694,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
     --m_size;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::remove(size_t position, size_t length)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::remove(size_t position, size_t length)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(position <= size());
     ASSERT_WITH_SECURITY_IMPLICATION(position + length <= size());
@@ -1695,18 +1707,18 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
     m_size -= length;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirst(const U& value)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeFirst(const U& value)
 {
     return removeFirstMatching([&value] (const T& current) {
         return current == value;
     });
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeFirstMatching(const MatchFunction& matches, size_t startIndex)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeFirstMatching(const MatchFunction& matches, size_t startIndex)
 {
     for (size_t i = startIndex; i < size(); ++i) {
         if (matches(at(i))) {
@@ -1717,25 +1729,25 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
     return false;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLast(const U& value)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeLast(const U& value)
 {
     return removeLastMatching([&value] (const T& current) {
         return current == value;
     });
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const MatchFunction& matches)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeLastMatching(const MatchFunction& matches)
 {
     return removeLastMatching(matches, size());
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeLastMatching(const MatchFunction& matches, size_t startIndex)
+inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeLastMatching(const MatchFunction& matches, size_t startIndex)
 {
     for (size_t i = std::min(startIndex + 1, size()); i > 0; --i) {
         if (matches(at(i - 1))) {
@@ -1746,18 +1758,18 @@ inline bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rem
     return false;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename U>
-inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAll(const U& value)
+inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeAll(const U& value)
 {
     return removeAllMatching([&value] (const T& current) {
         return current == value;
     });
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MatchFunction>
-inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::removeAllMatching(const MatchFunction& matches, size_t startIndex)
+inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::removeAllMatching(const MatchFunction& matches, size_t startIndex)
 {
     iterator holeBegin = end();
     iterator holeEnd = end();
@@ -1782,16 +1794,16 @@ inline unsigned Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>:
     return matchCount;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverse()
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::reverse()
 {
     for (size_t i = 0; i < m_size / 2; ++i)
         std::swap(at(i), at(m_size - 1 - i));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename ResultVector, typename MapFunction>
-inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>
+inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>
 {
     ResultVector result;
     result.reserveInitialCapacity(size());
@@ -1803,24 +1815,24 @@ inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map
 template <typename ContainerType>
 size_t containerSize(const ContainerType& container) { return std::size(container); }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename MapFunction>
-inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>
+inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>
 {
     return map<Vector<typename std::invoke_result_t<MapFunction, const T&>>, MapFunction>(std::forward<MapFunction>(mapFunction));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<typename ContainerType, typename MapFunction>
-void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendContainerWithMapping(ContainerType&& container, const MapFunction& mapFunction)
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::appendContainerWithMapping(ContainerType&& container, const MapFunction& mapFunction)
 {
     reserveCapacity(size() + containerSize(container));
     for (auto&& item : container)
         unsafeAppendWithoutCapacityCheck(mapFunction(std::forward<decltype(item)>(item)));
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline MallocPtr<T, Malloc> Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::releaseBuffer()
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline MallocPtr<T, Malloc> Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::releaseBuffer()
 {
     // FIXME: Find a way to preserve annotations on the returned buffer.
     // ASan requires that all annotations are removed before deallocation,
@@ -1841,8 +1853,8 @@ inline MallocPtr<T, Malloc> Vector<T, inlineCapacity, OverflowHandler, minCapaci
     return buffer;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::checkConsistency()
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::checkConsistency()
 {
 #if ENABLE(SECURITY_ASSERTIONS)
     for (size_t i = 0; i < size(); ++i)
@@ -1850,8 +1862,8 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::che
 #endif
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-inline void swap(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& a, Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& b)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+inline void swap(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& a, Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& b)
 {
     a.swap(b);
 }
@@ -1884,8 +1896,8 @@ size_t removeRepeatedElements(VectorType& vector, const Func& func)
     return newSize;
 }
 
-template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-size_t removeRepeatedElements(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>& vector)
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
+size_t removeRepeatedElements(Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& vector)
 {
     return removeRepeatedElements(vector, [] (T& a, T& b) { return a == b; });
 }
