@@ -120,7 +120,7 @@ void CryptoAlgorithm::dispatchDigest(WorkQueue& workQueue, ScriptExecutionContex
 {
     PAL::UseCryptoKit useCryptoKit = context.settingsValues().cryptoKitEnabled ? PAL::UseCryptoKit::Yes : PAL::UseCryptoKit::No;
     workQueue.dispatch([message = WTFMove(message), callback = WTFMove(callback), contextIdentifier = context.identifier(), exceptionCallback = WTFMove(exceptionCallback), useCryptoKit, algo]() mutable {
-        auto result = PAL::CryptoDigest::computeHash(algo, WTFMove(message), useCryptoKit);
+        auto result = PAL::CryptoDigest::computeHash(algo, message, useCryptoKit);
         ScriptExecutionContext::postTaskTo(contextIdentifier, [callback = WTFMove(callback), result = WTFMove(result), exceptionCallback = WTFMove(exceptionCallback)](auto&) mutable {
             if (!result.has_value()) {
                 exceptionCallback(ExceptionCode::OperationError);

@@ -97,37 +97,31 @@ public class AesGcm {
     }
 }
 
-public struct AesKwRV {
-    public var errCode: ErrorCodes = ErrorCodes.success
-    public var result: OptionalVectorUInt8 = OptionalVectorUInt8()
+/*public class AesKwRV {
+    let errCode: ErrorCodes
+    let result: VectorUInt8
+    public init(errCode: ErrorCodes = .defaultValue, result: VectorUInt8 = VectorUInt8()) {
+        self.errCode = errCode
+        self.result = result
+    }
 }
+*/
 
 public class AesKw {
-    public static func wrap(keyToWrap: SpanConstUInt8, using: SpanConstUInt8) -> AesKwRV {
-        var rv = AesKwRV()
+    public static func wrap(keyToWrap: SpanConstUInt8, using: SpanConstUInt8) -> Cpp.AesKwRV {
         do {
-            let result = try AES.KeyWrap.wrap(keyToWrap, using: using)
-            rv.errCode = .success
-            rv.result = Cpp.makeOptional(
-                result)
+            return Cpp.makeAesKwRV(try AES.KeyWrap.wrap(keyToWrap, using: using))
         } catch {
-            rv.errCode = .encryptionFailed
+            return Cpp.makeAesKwRV(Cpp.ErrorCodes.EncryptionFailed)
         }
-        return rv
     }
 
-    public static func unwrap(wrappedKey: SpanConstUInt8, using: SpanConstUInt8) -> AesKwRV {
-        var rv = AesKwRV()
+    public static func unwrap(wrappedKey: SpanConstUInt8, using: SpanConstUInt8) -> Cpp.AesKwRV {
         do {
-            let result = try AES.KeyWrap.unwrap(
-                wrappedKey, using: using)
-            rv.errCode = .success
-            rv.result = Cpp.makeOptional(
-                result.copyToVectorUInt8())
+            return Cpp.makeAesKwRV(try AES.KeyWrap.unwrap(wrappedKey, using: using).copyToVectorUInt8())
         } catch {
-            rv.errCode = .encryptionFailed
+            return Cpp.makeAesKwRV(Cpp.ErrorCodes.EncryptionFailed)
         }
-        return rv
     }
 
 }  // AesKw

@@ -70,7 +70,7 @@ static ExceptionOr<Vector<uint8_t>> signEd25519CryptoKit(const Vector<uint8_t>&s
         return Exception { ExceptionCode::OperationError };
     if (!rv.getSignature())
         return Exception { ExceptionCode::OperationError };
-    return *rv.getSignature();
+    return Vector<uint8_t>(WTFMove(*rv.getSignature()));
 }
 
 static ExceptionOr<bool>  verifyEd25519CryptoKit(const Vector<uint8_t>& pubKey, const Vector<uint8_t>& signature, const Vector<uint8_t>& data)

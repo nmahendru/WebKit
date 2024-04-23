@@ -63,7 +63,7 @@ static std::optional<Vector<uint8_t>> platformDeriveBitsCryptoKit(const CryptoKe
     auto rv = (*priv)->deriveBits(*pub);
     if (!(rv.getErrCode().isSuccess() && rv.getKeyBytes()))
         return std::nullopt;
-    return rv.getKeyBytes();
+    return Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
 }
 #endif
 

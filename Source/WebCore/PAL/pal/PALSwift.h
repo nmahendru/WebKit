@@ -29,11 +29,19 @@
 #include <wtf/Vector.h>
 
 namespace Cpp {
-
-using VectorUInt8 = WTF::Vector<uint8_t>;
+enum class ErrorCodes {
+    Default, EncryptionFailed
+};
+using VectorUInt8 = WTF::Vector<uint8_t, 0, CrashOnOverflow, 16, WTF::VectorBufferMalloc, WTF::IsCopyable::No>;
 using SpanConstUInt8 = std::span<const uint8_t>;
-using OptionalVectorUInt8 = std::optional<WTF::Vector<uint8_t>>;
-
+using OptionalVectorUInt8 = std::optional<VectorUInt8>;
+using AesKwRV = std::variant<ErrorCodes, VectorUInt8>;
+inline AesKwRV makeAesKwRV(ErrorCodes code) {
+    return code;
+}
+inline AesKwRV makeAesKwRV(VectorUInt8 && val) {
+    return val;
+}
 
 // FIXME: remove when swift support is available rdar://118026392
 inline OptionalVectorUInt8 makeOptional(VectorUInt8 val)

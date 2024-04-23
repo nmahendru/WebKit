@@ -38,7 +38,7 @@ static std::optional<Vector<uint8_t>> deriveBitsCryptoKit(const Vector<uint8_t>&
         return std::nullopt;
     if (!rv.getKeyBytes())
         return std::nullopt;
-    return *rv.getKeyBytes();
+    return Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
 }
 #endif
 static std::optional<Vector<uint8_t>> deriveBitsCoreCrypto(const Vector<uint8_t>& baseKey, const Vector<uint8_t>& publicKey)

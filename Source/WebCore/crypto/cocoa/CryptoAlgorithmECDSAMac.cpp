@@ -72,7 +72,7 @@ static ExceptionOr<Vector<uint8_t>> signECDSACryptoKit(CryptoAlgorithmIdentifier
     auto rv = (*priv)->sign(data.span(), toCKHashFunction(hash));
     if (!(rv.getErrCode().isSuccess() && rv.getSignature()))
         return Exception { ExceptionCode::OperationError };
-    return *rv.getSignature();
+    return Vector<uint8_t>(WTFMove(*rv.getSignature()));
 }
 
 static ExceptionOr<bool> verifyECDSACryptoKit(CryptoAlgorithmIdentifier hash, const PlatformECKeyContainer& key, const Vector<uint8_t>& signature, const Vector<uint8_t> data)

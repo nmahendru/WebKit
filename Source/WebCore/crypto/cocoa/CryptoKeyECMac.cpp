@@ -181,7 +181,7 @@ Vector<uint8_t> CryptoKeyEC::platformExportRaw(UseCryptoKit useCryptoKit) const
             return { };
         if (rv.getKeyBytes()->size() != expectedSize)
             return { };
-        return *rv.getKeyBytes();
+        return Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
     }
 #else
     UNUSED_PARAM(useCryptoKit);
@@ -260,14 +260,14 @@ bool CryptoKeyEC::platformAddFieldElements(JsonWebKey& jwk, UseCryptoKit useCryp
             auto rv = (*pubOrPriv)->exportX963Pub();
             if (!(rv.getErrCode().isSuccess() && rv.getKeyBytes()))
                 return false;
-            result = *rv.getKeyBytes();
+            result = Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
             break;
         }
         case CryptoKeyType::Private: {
             auto rv = (*pubOrPriv)->exportX963Private();
             if (!(rv.getErrCode().isSuccess() && rv.getKeyBytes()))
                 return false;
-            result = *rv.getKeyBytes();
+            result = Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
             break;
         }
         case CryptoKeyType::Secret:
@@ -415,7 +415,7 @@ Vector<uint8_t> CryptoKeyEC::platformExportSpki(UseCryptoKit useCryptoKit) const
             return { };
         if (rv.getKeyBytes()->size() != expectedKeySize)
             return { };
-        keyBytes = *rv.getKeyBytes();
+        keyBytes = Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
         keySize = expectedKeySize;
     } else {
         const auto* pub = std::get_if<CCPlatformECKeyContainer>(&platformKey());
@@ -546,7 +546,7 @@ Vector<uint8_t> CryptoKeyEC::platformExportPkcs8(UseCryptoKit useCryptoKit) cons
             return { };
         if (rv.getKeyBytes()->size() != expectedKeySize)
             return { };
-        keyBytes = *rv.getKeyBytes();
+        keyBytes = Vector<uint8_t>(WTFMove(*rv.getKeyBytes()));
         keySize = expectedKeySize;
     } else {
         const auto* priv = std::get_if<CCPlatformECKeyContainer>(&platformKey());

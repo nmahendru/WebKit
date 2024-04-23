@@ -57,7 +57,7 @@ static ExceptionOr<Vector<uint8_t>> encryptCryptoKitAESGCM(const Vector<uint8_t>
     auto rv = PAL::AesGcm::encrypt(key.span(), iv.span(), additionalData.span(), plainText.span(), desiredTagLengthInBytes);
     if (!rv.getErrorCode().isSuccess())
         return Exception { ExceptionCode::OperationError };
-    return WTFMove(*rv.getCipherText());
+    return Vector<uint8_t>(WTFMove(*rv.getCipherText()));
 }
 #endif
 

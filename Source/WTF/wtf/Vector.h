@@ -783,15 +783,15 @@ public:
         asanSetBufferSizeToFullCapacity(0);
     }
 
-    Vector(const Vector&) requires(isCopyable == IsCopyable::Yes);
+    Vector(const Vector&);
 
     template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-    explicit Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&) requires(isCopyable == IsCopyable::Yes);
+    explicit Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&);
 
-    Vector& operator=(const Vector&)requires(isCopyable == IsCopyable::Yes);
+    Vector& operator=(const Vector&);
 
     template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-    Vector& operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&) requires(isCopyable == IsCopyable::Yes);
+    Vector& operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>&);
 
     Vector(Vector&&);
     Vector& operator=(Vector&&);
@@ -1028,9 +1028,11 @@ private:
 };
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector& other) requires(isCopyable == IsCopyable::Yes)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector& other)
     : Base(other.size(), other.size())
 {
+    if(isCopyable == IsCopyable::No)
+        ASSERT_NOT_REACHED("C++ copy constructors are not memory safe in Swift. Try to find a way to borrow the object instead.");
     asanSetInitialBufferSizeTo(other.size());
 
     if (begin())
@@ -1040,9 +1042,11 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vec
  
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other) requires(isCopyable == IsCopyable::Yes)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vector(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other)
     : Base(other.size(), other.size())
 {
+    if(isCopyable == IsCopyable::No)
+        ASSERT_NOT_REACHED("C++ copy constructors are not memory safe in Swift. Try to find a way to borrow the object instead.");
     asanSetInitialBufferSizeTo(other.size());
 
     if (begin())
@@ -1050,8 +1054,10 @@ Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::Vec
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& other) requires(isCopyable == IsCopyable::Yes)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& other)
 {
+    if(isCopyable == IsCopyable::No)
+        ASSERT_NOT_REACHED("C++ copy constructors are not memory safe in Swift. Try to find a way to borrow the object instead.");
     if (&other == this)
         return *this;
     
@@ -1076,8 +1082,10 @@ inline bool typelessPointersAreEqual(const void* a, const void* b) { return a ==
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc, IsCopyable isCopyable>
 template<size_t otherCapacity, typename otherOverflowBehaviour, size_t otherMinimumCapacity, typename OtherMalloc>
-Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other) requires(isCopyable == IsCopyable::Yes)
+Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>& Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc, isCopyable>::operator=(const Vector<T, otherCapacity, otherOverflowBehaviour, otherMinimumCapacity, OtherMalloc>& other)
 {
+    if(isCopyable == IsCopyable::No)
+        ASSERT_NOT_REACHED("C++ copy constructors are not memory safe in Swift. Try to find a way to borrow the object instead.");
     // If the inline capacities match, we should call the more specific
     // template.  If the inline capacities don't match, the two objects
     // shouldn't be allocated the same address.
