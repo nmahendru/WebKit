@@ -1,0 +1,5 @@
+module TestWebGPU {
+    requires cplusplus
+    header "TestWebGPU.h"
+    export *
+}
