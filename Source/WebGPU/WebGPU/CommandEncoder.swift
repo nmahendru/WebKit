@@ -32,6 +32,9 @@ public func resolveQuerySet(commandEncoder: WebGPU.CommandEncoder, querySet: Web
 {
     commandEncoder.resolveQuerySet(querySet, firstQuery: firstQuery, queryCount: queryCount, destination: destination, destinationOffset: destinationOffset)
 }
+public func commandEncoder_copyBufferToTexture(commandEncoder: WebGPU.CommandEncoder, source: WebGPU.WGPUImageCopyBuffer, destination: WebGPU.WGPUImageCopyTexture, copySize: WebGPU.WGPUExtend3D){
+    commandEncoder.copyBufferToTexture(source: source, destination: destination, copySize: copySize)
+}
 extension WebGPU.CommandEncoder {
     public func clearBuffer(buffer: WebGPU.Buffer, offset: UInt64, size: inout UInt64) {
         guard self.prepareTheEncoderState() else {
@@ -125,5 +128,8 @@ extension WebGPU.CommandEncoder {
             return false
         }
         return true
+    }
+    public func copyBufferToTexture(source: WebGPU.WGPUImageCopyBuffer, destination: WebGPU.WGPUImageCopyTexture, copySize: WebGPU.WGPUExtend3D){
+        
     }
 }
