@@ -43,6 +43,7 @@
 #import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
 
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUBufferImpl {
 };
 
@@ -90,7 +91,7 @@ public:
         Destroyed,
     };
 
-    id<MTLBuffer> buffer() const { return m_buffer; }
+    id<MTLBuffer> _Nullable buffer() const { return m_buffer; }
     id<MTLBuffer> indirectBuffer() const;
     id<MTLBuffer> indirectIndexedBuffer() const { return m_indirectIndexedBuffer; }
     id<MTLBuffer> indirectIndexedBuffer(uint32_t firstIndex, uint32_t indexCount, uint32_t vertexCount, MTLIndexType, uint32_t firstInstance, id<MTLIndirectCommandBuffer> = nil);
@@ -122,8 +123,7 @@ public:
 
     bool didReadOOB(id<MTLIndirectCommandBuffer> = nil) const;
     void didReadOOB(uint32_t v, id<MTLIndirectCommandBuffer> = nil);
-
-    void indirectBufferInvalidated(CommandEncoder* = nullptr);
+    void indirectBufferInvalidatedPtr(CommandEncoder* = nullptr);
     void indirectBufferInvalidated(CommandEncoder&);
 #if ENABLE(WEBGPU_SWIFT)
     void copyFrom(const std::span<const uint8_t>, const size_t offset) HAS_SWIFTCXX_THUNK;
@@ -200,3 +200,5 @@ inline void derefBuffer(WebGPU::Buffer* obj)
 {
     WTF::deref(obj);
 }
+
+NS_ASSUME_NONNULL_END

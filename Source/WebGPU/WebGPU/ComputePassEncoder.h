@@ -36,7 +36,7 @@
 #import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUComputePassEncoderImpl {
 };
 
@@ -124,3 +124,4 @@ inline void derefComputePassEncoder(WebGPU::ComputePassEncoder* obj)
 {
     deref(obj);
 }
+NS_ASSUME_NONNULL_END

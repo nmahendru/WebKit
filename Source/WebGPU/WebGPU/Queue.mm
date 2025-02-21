@@ -468,7 +468,7 @@ void Queue::writeBuffer(Buffer& buffer, uint64_t bufferOffset, std::span<uint8_t
 
     // FIXME(PERFORMANCE): Instead of checking whether or not the whole queue is idle,
     // we could detect whether this specific resource is idle, if we tracked every resource.
-    buffer.indirectBufferInvalidated();
+    buffer.indirectBufferInvalidatedPtr();
     if (isIdle()) {
         switch (buffer.buffer().storageMode) {
         case MTLStorageModeShared:

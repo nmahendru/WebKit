@@ -38,11 +38,11 @@
 #import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 @interface TextureAndClearColor : NSObject
 - (instancetype)initWithTexture:(id<MTLTexture>)texture NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
-@property (nonatomic) id<MTLTexture> texture;
+@property (nonatomic, nonnull) id<MTLTexture> texture;
 @property (nonatomic) MTLClearColor clearColor;
 @property (nonatomic) NSUInteger depthPlane;
 @end
@@ -88,7 +88,7 @@ public:
     void copyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
     void copyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
     void copyTextureToTexture(const WGPUImageCopyTexture& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize) HAS_SWIFTCXX_THUNK;
-    void runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndClearColor*> *attachmentsToClear, id<MTLTexture> depthStencilAttachmentToClear, bool depthAttachmentToClear, bool stencilAttachmentToClear, float depthClearValue = 0, uint32_t stencilClearValue = 0, id<MTLRenderCommandEncoder> existingEncoder = nil) HAS_SWIFTCXX_THUNK;
+    void runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndClearColor*> *attachmentsToClear, id<MTLTexture> depthStencilAttachmentToClear, bool depthAttachmentToClear, bool stencilAttachmentToClear, float depthClearValue = 0, uint32_t stencilClearValue = 0, id<MTLRenderCommandEncoder> _Nullable existingEncoder = nil) HAS_SWIFTCXX_THUNK;
     void clearBuffer(Buffer&, uint64_t offset, uint64_t size);
     Ref<CommandBuffer> finish(const WGPUCommandBufferDescriptor&) HAS_SWIFTCXX_THUNK;
     void insertDebugMarker(String&& markerLabel);
@@ -113,7 +113,7 @@ public:
     NSString * encoderStateNameWrapper() { return encoderStateName(); }
 #endif
 
-    id<MTLBlitCommandEncoder> ensureBlitCommandEncoder();
+    id<MTLBlitCommandEncoder> _Nullable ensureBlitCommandEncoder();
     void finalizeBlitCommandEncoder();
     static void clearTextureIfNeeded(const WGPUImageCopyTexture&, NSUInteger, const Device&, id<MTLBlitCommandEncoder>);
     static void clearTextureIfNeeded(Texture&, NSUInteger, NSUInteger, const Device&, id<MTLBlitCommandEncoder>);
@@ -122,7 +122,7 @@ public:
     void makeSubmitInvalid(NSString* = nil);
     void incrementBufferMapCount();
     void decrementBufferMapCount();
-    void endEncoding(id<MTLCommandEncoder>);
+    void endEncoding(id<MTLCommandEncoder> _Nullable);
     void setLastError(NSString*);
     bool waitForCommandBufferCompletion();
     bool encoderIsCurrent(id<MTLCommandEncoder>) const;
@@ -134,7 +134,7 @@ public:
     void addTexture(const Texture&);
     void addSampler(const Sampler&);
     id<MTLCommandBuffer> commandBuffer() const;
-    void setExistingEncoder(id<MTLCommandEncoder>);
+    void setExistingEncoder(id<MTLCommandEncoder> _Nullable);
     void generateInvalidEncoderStateError();
     bool validateClearBuffer(const Buffer&, uint64_t offset, uint64_t size);
     static void trackEncoder(CommandEncoder&, WeakHashSet<CommandEncoder>&);
@@ -165,21 +165,21 @@ private:
     void retainTimestampsForOneUpdateLoop();
 
 private PUBLIC_IN_WEBGPU_SWIFT:
-    id<MTLCommandBuffer> m_commandBuffer { nil };
-    id<MTLCommandEncoder> m_existingCommandEncoder { nil };
-    id<MTLBlitCommandEncoder> m_blitCommandEncoder { nil };
-    NSString* m_lastErrorString { nil };
+    id<MTLCommandBuffer> _Nullable m_commandBuffer { nil };
+    id<MTLCommandEncoder> _Nullable m_existingCommandEncoder { nil };
+    id<MTLBlitCommandEncoder> _Nullable m_blitCommandEncoder { nil };
+    NSString* _Nullable m_lastErrorString { nil };
     uint64_t m_debugGroupStackSize { 0 };
     ThreadSafeWeakPtr<CommandBuffer> m_cachedCommandBuffer;
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    NSMutableSet<id<MTLTexture>> *m_managedTextures { nil };
-    NSMutableSet<id<MTLBuffer>> *m_managedBuffers { nil };
+    NSMutableSet<id<MTLTexture>>* m_managedTextures { nil };
+    NSMutableSet<id<MTLBuffer>>* m_managedBuffers { nil };
 #endif
 private:
     id<MTLSharedEvent> m_abortCommandBuffer { nil };
 
 
-    NSMutableSet<id<MTLIndirectCommandBuffer>> *m_retainedICBs { nil };
+    NSMutableSet<id<MTLIndirectCommandBuffer>>* m_retainedICBs { nil };
     NSMutableSet<id<MTLTexture>> *m_retainedTextures { nil };
     NSMutableSet<id<MTLBuffer>> *m_retainedBuffers { nil };
     HashSet<RefPtr<const Sampler>> m_retainedSamplers;
@@ -188,7 +188,7 @@ private:
 private PUBLIC_IN_WEBGPU_SWIFT:
     int m_bufferMapCount { 0 };
     bool m_makeSubmitInvalid { false };
-    id<MTLSharedEvent> m_sharedEvent { nil };
+    id<MTLSharedEvent> _Nullable m_sharedEvent { nil };
     uint64_t m_sharedEventSignalValue { 0 };
     const Ref<Device> m_device;
     uint64_t m_uniqueId;
@@ -206,3 +206,4 @@ inline void derefCommandEncoder(WebGPU::CommandEncoder* obj)
 {
     WTF::deref(obj);
 }
+NS_ASSUME_NONNULL_END

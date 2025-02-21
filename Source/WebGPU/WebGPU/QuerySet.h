@@ -36,7 +36,7 @@
 #import <wtf/Vector.h>
 #import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUQuerySetImpl {
 };
 
@@ -115,3 +115,4 @@ inline void derefQuerySet(WebGPU::QuerySet* obj)
 {
     WTF::deref(obj);
 }
+NS_ASSUME_NONNULL_END

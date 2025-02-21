@@ -24,7 +24,7 @@
  */
 
 #pragma once
-
+NS_ASSUME_NONNULL_BEGIN
 namespace WebGPU {
 
 class Buffer;
@@ -47,3 +47,5 @@ protected:
 };
 
 } // namespace WebGPU
+
+NS_ASSUME_NONNULL_END

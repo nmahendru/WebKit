@@ -46,6 +46,8 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
+_Pragma("clang assume_nonnull begin")
+
 #ifdef __swift__
 typedef struct __CVBuffer* CVPixelBufferRef;
 #endif
@@ -113,10 +115,10 @@ typedef struct WGPUExternalTextureDescriptor {
 
 typedef void (*WGPUProcRenderBundleSetLabel)(WGPURenderBundle renderBundle, char const * label);
 
-typedef WGPUExternalTexture (*WGPUProcDeviceImportExternalTexture)(WGPUSwapChain swapChain);
+typedef WGPUExternalTexture _Nullable (*WGPUProcDeviceImportExternalTexture)(WGPUSwapChain swapChain);
 
 // FIXME: https://github.com/webgpu-native/webgpu-headers/issues/89 is about moving this from WebGPUExt.h to WebGPU.h
-typedef WGPUTexture (*WGPUProcSwapChainGetCurrentTexture)(WGPUSwapChain swapChain);
+typedef WGPUTexture _Nullable (*WGPUProcSwapChainGetCurrentTexture)(WGPUSwapChain swapChain);
 
 #endif  // !defined(WGPU_SKIP_PROCS)
 
@@ -163,6 +165,7 @@ WGPU_EXPORT void wgpuDeviceClearUncapturedErrorCallback(WGPUDevice device) WGPU_
 
 WGPU_EXPORT String wgpuAdapterFeatureName(WGPUFeatureName feature) WGPU_FUNCTION_ATTRIBUTE;
 
+_Pragma("clang assume_nonnull end")
 // Current Swift-C++ encapsulation rules prevent Swift from accessing non-public data members,
 // even in extensions. When building WebGPU, use these macros to allow our Swift module to break
 // encapsulation.
@@ -179,5 +182,4 @@ WGPU_EXPORT String wgpuAdapterFeatureName(WGPUFeatureName feature) WGPU_FUNCTION
 #define HAS_SWIFTCXX_THUNK  NS_REFINED_FOR_SWIFT
 
 #endif
-
 #endif // WEBGPUEXT_H_

@@ -33,6 +33,7 @@
 #import <wtf/WeakPtr.h>
 #import <wtf/threads/BinarySemaphore.h>
 
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUCommandBufferImpl {
 };
 
@@ -95,7 +96,6 @@ private:
 } SWIFT_SHARED_REFERENCE(refCommandBuffer, derefCommandBuffer);
 
 } // namespace WebGPU
-
 inline void refCommandBuffer(WebGPU::CommandBuffer* obj)
 {
     WTF::ref(obj);
@@ -105,3 +105,4 @@ inline void derefCommandBuffer(WebGPU::CommandBuffer* obj)
 {
     WTF::deref(obj);
 }
+NS_ASSUME_NONNULL_END

@@ -47,6 +47,8 @@
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 using SpanConstUInt8 = std::span<const uint8_t>;
 using SpanUInt8 = std::span<uint8_t>;
 using WTFRangeSizeT = WTF::Range<size_t>;
@@ -128,7 +130,9 @@ inline ThreadSafeWeakPtr<WebGPU::CommandBuffer> commandBufferThreadSafeWeakPtr(c
 }
 
 }
+NS_ASSUME_NONNULL_END
 
 #ifndef __swift__
 #include "WebGPUSwift-Generated.h"
 #endif
+

@@ -36,7 +36,7 @@
 #import <wtf/Vector.h>
 #import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUTextureImpl {
 };
 
@@ -79,12 +79,12 @@ public:
     static bool containsStencilAspect(WGPUTextureFormat);
     static bool isDepthOrStencilFormat(WGPUTextureFormat);
     static WGPUTextureFormat aspectSpecificFormat(WGPUTextureFormat, WGPUTextureAspect);
-    static NSString* errorValidatingImageCopyTexture(const WGPUImageCopyTexture&, const WGPUExtent3D&);
-    static NSString* errorValidatingTextureCopyRange(const WGPUImageCopyTexture&, const WGPUExtent3D&);
+    static NSString* _Nullable errorValidatingImageCopyTexture(const WGPUImageCopyTexture&, const WGPUExtent3D&);
+    static NSString* _Nullable errorValidatingTextureCopyRange(const WGPUImageCopyTexture&, const WGPUExtent3D&);
     static bool refersToSingleAspect(WGPUTextureFormat, WGPUTextureAspect);
     static bool isValidDepthStencilCopySource(WGPUTextureFormat, WGPUTextureAspect);
     static bool isValidDepthStencilCopyDestination(WGPUTextureFormat, WGPUTextureAspect);
-    static NSString* errorValidatingLinearTextureData(const WGPUTextureDataLayout&, uint64_t, WGPUTextureFormat, WGPUExtent3D);
+    static NSString* _Nullable errorValidatingLinearTextureData(const WGPUTextureDataLayout&, uint64_t, WGPUTextureFormat, WGPUExtent3D);
     static MTLTextureUsage usage(WGPUTextureUsageFlags, WGPUTextureFormat);
     static MTLPixelFormat pixelFormat(WGPUTextureFormat);
     static std::optional<MTLPixelFormat> depthOnlyAspectMetalFormat(WGPUTextureFormat);
@@ -101,7 +101,7 @@ public:
     WGPUExtent3D logicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
     WGPUExtent3D physicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
 
-    id<MTLTexture> texture() const { return m_texture; }
+    id<MTLTexture> _Nullable texture() const { return m_texture; }
 
     uint32_t width() const { return m_width; }
     uint32_t height() const { return m_height; }
@@ -139,7 +139,7 @@ private:
 
     std::optional<WGPUTextureViewDescriptor> resolveTextureViewDescriptorDefaults(const WGPUTextureViewDescriptor&) const;
     uint32_t arrayLayerCount() const;
-    NSString* errorValidatingTextureViewCreation(const WGPUTextureViewDescriptor&) const;
+    NSString* _Nullable errorValidatingTextureViewCreation(const WGPUTextureViewDescriptor&) const;
 
     id<MTLTexture> m_texture { nil };
 
@@ -177,3 +177,4 @@ inline void derefTexture(WebGPU::Texture* obj)
 {
     WTF::deref(obj);
 }
+NS_ASSUME_NONNULL_END

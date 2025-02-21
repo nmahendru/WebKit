@@ -36,7 +36,7 @@
 #import <wtf/ThreadSafeRefCounted.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUQueueImpl {
 };
 
@@ -88,9 +88,9 @@ public:
     id<MTLCommandEncoder> encoderForBuffer(id<MTLCommandBuffer>) const;
     void clearTextureViewIfNeeded(TextureView&);
     static bool writeWillCompletelyClear(WGPUTextureDimension, uint32_t widthForMetal, uint32_t logicalSizeWidth, uint32_t heightForMetal, uint32_t logicalSizeHeight, uint32_t depthForMetal, uint32_t logicalSizeDepthOrArrayLayers);
-    void endEncoding(id<MTLCommandEncoder>, id<MTLCommandBuffer>) const;
+    void endEncoding(id<MTLCommandEncoder> _Nullable, id<MTLCommandBuffer> _Nullable) const;
 
-    id<MTLBlitCommandEncoder> ensureBlitCommandEncoder();
+    id<MTLBlitCommandEncoder> _Nullable ensureBlitCommandEncoder();
     void finalizeBlitCommandEncoder();
 
     // This can be called on a background thread.
@@ -146,4 +146,4 @@ inline void derefQueue(WebGPU::Queue* obj)
 {
     WTF::deref(obj);
 }
-
+NS_ASSUME_NONNULL_END

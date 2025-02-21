@@ -37,7 +37,7 @@
 #import <wtf/TZoneMalloc.h>
 #import <wtf/Vector.h>
 #import <wtf/WeakPtr.h>
-
+NS_ASSUME_NONNULL_BEGIN
 @class TextureAndClearColor;
 
 struct WGPURenderPassEncoderImpl {
@@ -119,7 +119,7 @@ private:
 
     bool validatePopDebugGroup() const;
     bool executePreDrawCommands(uint32_t vertexCount);
-    bool executePreDrawCommands(uint32_t firstInstance, uint32_t instanceCount, bool passWasSplit, const Buffer*, bool needsValidationLayerWorkaround);
+    bool executePreDrawCommands(uint32_t firstInstance, uint32_t instanceCount, bool passWasSplit, const Buffer* _Nullable, bool needsValidationLayerWorkaround);
     bool runIndexBufferValidation(uint32_t firstInstance, uint32_t instanceCount);
     void runVertexBufferValidation(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
     void addResourceToActiveResources(const TextureView&, OptionSet<BindGroupEntryUsage>);
@@ -219,3 +219,4 @@ inline void derefRenderPassEncoder(WebGPU::RenderPassEncoder* obj)
 {
     deref(obj);
 }
+NS_ASSUME_NONNULL_END

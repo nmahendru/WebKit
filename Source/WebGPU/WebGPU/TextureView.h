@@ -33,6 +33,7 @@
 #import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
 
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUTextureViewImpl {
 };
 
@@ -116,3 +117,4 @@ inline void derefTextureView(WebGPU::TextureView* obj)
 {
     deref(obj);
 }
+NS_ASSUME_NONNULL_END

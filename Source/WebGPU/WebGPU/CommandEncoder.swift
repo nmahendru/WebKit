@@ -129,21 +129,24 @@ extension WebGPU.CommandEncoder {
         setEncoderState(WebGPU.CommandsMixin.EncoderState.Ended)
         if validationFailedError != nil {
             discardCommandBuffer()
-            protectedDevice().ptr().generateAValidationError(m_lastErrorString != nil ? m_lastErrorString! as String : validationFailedError);
+            protectedDevice().ptr().generateAValidationError((m_lastErrorString ?? validationFailedError! as NSString) as String)
             return WebGPU.CommandBuffer.createInvalid(m_device.ptr())
         }
 
         finalizeBlitCommandEncoder()
+        guard m_commandBuffer != nil else {
+            WebGPU_Internal.logString("commandBuffer should not be nil.")
+            return WebGPU.CommandBuffer.createInvalid(m_device.ptr())
+        }
 
-        let commandBuffer = m_commandBuffer
+        let commandBuffer = m_commandBuffer!
         m_commandBuffer = nil
         m_existingCommandEncoder = nil
-
-        commandBuffer?.label = WebGPU_Internal.convertWTFStringToNSString(WebGPU.fromAPI(descriptor.label))
+        commandBuffer.label = WebGPU_Internal.convertWTFStringToNSString(WebGPU.fromAPI(descriptor.label))
 
     #if os(macOS) || targetEnvironment(macCatalyst)
         if m_managedBuffers.count != 0 || m_managedTextures.count != 0 {
-            let blitCommandEncoder = commandBuffer?.makeBlitCommandEncoder()
+            let blitCommandEncoder = commandBuffer.makeBlitCommandEncoder()
             for case let buffer as MTLBuffer in m_managedBuffers {
                 blitCommandEncoder?.synchronize(resource: buffer)
             }
@@ -153,19 +156,23 @@ extension WebGPU.CommandEncoder {
             blitCommandEncoder?.endEncoding()
         }
     #endif
-
-        let result = createCommandBuffer(commandBuffer, m_device.ptr(), m_sharedEvent, m_sharedEventSignalValue)
+        guard m_sharedEvent != nil else {
+            WebGPU_Internal.logString("m_sharedEvent should not be nil.")
+            return WebGPU.CommandBuffer.createInvalid(m_device.ptr())
+        }
+        let result = createCommandBuffer(commandBuffer, m_device.ptr(), m_sharedEvent!, m_sharedEventSignalValue)
         m_sharedEvent = nil
         m_cachedCommandBuffer = WebGPU_Internal.commandBufferThreadSafeWeakPtr(result.ptr())
         result.ptr().setBufferMapCount(m_bufferMapCount)
         if m_makeSubmitInvalid {
-            result.ptr().makeInvalid(m_lastErrorString as String)
+            result.ptr().makeInvalid((m_lastErrorString ?? NSString(string: "CommandEncoder.finish() called with makeSubmitInvalid set to true")) as String)
         }
 
         return result
     }
     public func clearTextureIfNeeded(destination: WGPUImageCopyTexture, slice: UInt) {
-        return WebGPU.CommandEncoder.clearTextureIfNeeded(destination, slice, m_device.ptr(), m_blitCommandEncoder)
+        if m_blitCommandEncoder == nil { return }
+        return clearTextureIfNeeded(destination: destination, slice: slice, device: m_device.ptr(), blitCommandEncoder: m_blitCommandEncoder!)
     }
     private func clearTextureIfNeeded(destination: WGPUImageCopyTexture , slice: UInt, device: WebGPU.Device , blitCommandEncoder: MTLBlitCommandEncoder?)
     {
@@ -291,10 +298,10 @@ extension WebGPU.CommandEncoder {
             var depthStencilDescriptor: MTLDepthStencilDescriptor? = nil
             for (key, textureAndClearColor) in attachmentsToClear {
                 let t = textureAndClearColor.texture
-                sampleCount = UInt(t!.sampleCount)
+                sampleCount = UInt(t.sampleCount)
 
                 let mtlColorAttachment = mtlRenderPipelineDescriptor.colorAttachments[key.intValue]
-                mtlColorAttachment?.pixelFormat = t!.pixelFormat
+                mtlColorAttachment?.pixelFormat = t.pixelFormat
                 mtlColorAttachment?.isBlendingEnabled = false
             }
 
@@ -374,7 +381,10 @@ extension WebGPU.CommandEncoder {
                 mtlAttachment?.slice = 0
                 mtlAttachment?.depthPlane = Int(textureAndClearColor.depthPlane)
             }
-            clearRenderCommandEncoder = m_commandBuffer.makeRenderCommandEncoder(descriptor: clearDescriptor)
+            if m_commandBuffer == nil {
+                WebGPU_Internal.logString("Attempting to make render command encoder on nil command buffer.")
+            }
+            clearRenderCommandEncoder = m_commandBuffer?.makeRenderCommandEncoder(descriptor: clearDescriptor)
             setExistingEncoder(clearRenderCommandEncoder)
         }
 
@@ -763,10 +773,10 @@ extension WebGPU.CommandEncoder {
     }
 
     private func errorValidatingComputePassDescriptor(descriptor: WGPUComputePassDescriptor) -> String? {
-        if descriptor.timestampWrites != nil {
-            return errorValidatingTimestampWrites(timestampWrites: descriptor.timestampWrites.pointee)
+        if descriptor.timestampWrites == nil {
+            return "Timestamp writes must be specified."
         }
-        return nil
+        return errorValidatingTimestampWrites(timestampWrites: descriptor.timestampWrites.pointee)
     }
     private func isRenderableTextureView(texture: WebGPU.TextureView) -> Bool {
         let textureDimension = texture.dimension()
@@ -818,7 +828,7 @@ extension WebGPU.CommandEncoder {
             if descriptor.nextInChain.pointee.sType != WGPUSType_RenderPassDescriptorMaxDrawCount {
                 return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "descriptor is corrupted")
             }
-            descriptor.nextInChain.withMemoryRebound(to: WGPURenderPassDescriptorMaxDrawCount.self, capacity: 1) {
+            descriptor.nextInChain!.withMemoryRebound(to: WGPURenderPassDescriptorMaxDrawCount.self, capacity: 1) {
                 maxDrawCount = $0.pointee.maxDrawCount
             }
         }
@@ -832,7 +842,7 @@ extension WebGPU.CommandEncoder {
             return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), error)
         }
 
-        guard m_commandBuffer.status.rawValue < MTLCommandBufferStatus.enqueued.rawValue else {
+        guard m_commandBuffer != nil, m_commandBuffer!.status.rawValue < MTLCommandBufferStatus.enqueued.rawValue else {
             return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "command buffer has already been committed")
         }
 
@@ -849,9 +859,9 @@ extension WebGPU.CommandEncoder {
                 mtlDescriptor.sampleBufferAttachments[0].endOfVertexSampleIndex = Int(descriptor.timestampWrites.pointee.endOfPassWriteIndex)
                 mtlDescriptor.sampleBufferAttachments[0].startOfFragmentSampleIndex = Int(descriptor.timestampWrites.pointee.endOfPassWriteIndex)
                 mtlDescriptor.sampleBufferAttachments[0].endOfFragmentSampleIndex = Int(descriptor.timestampWrites.pointee.endOfPassWriteIndex)
-                m_device.ptr().trackTimestampsBuffer(m_commandBuffer, counterSampleBuffer);
+                m_device.ptr().trackTimestampsBuffer(m_commandBuffer!, counterSampleBuffer!);
             } else {
-                mtlDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer != nil ? counterSampleBuffer : m_device.ptr().timestampsBuffer(m_commandBuffer, 4)
+                mtlDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer ?? m_device.ptr().timestampsBuffer(m_commandBuffer!, 4)
                 mtlDescriptor.sampleBufferAttachments[0].startOfVertexSampleIndex = 0
                 mtlDescriptor.sampleBufferAttachments[0].endOfVertexSampleIndex = 1
                 mtlDescriptor.sampleBufferAttachments[0].startOfFragmentSampleIndex = 2
@@ -979,10 +989,7 @@ extension WebGPU.CommandEncoder {
                 }
                 resolveTarget.setCommandEncoder(self)
                 let resolveTexture = resolveTarget.texture()
-                if (resolveTexture == nil || mtlTexture == nil) {
-                    return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "resolveTexture/mtlTexture is nil")
-                }
-                if mtlTexture!.sampleCount == 1 || resolveTexture!.sampleCount != 1 || isMultisampleTexture(texture: resolveTexture!) || !isMultisampleTexture(texture: mtlTexture!) || !isRenderableTextureView(texture: resolveTarget) || mtlTexture!.pixelFormat != resolveTexture!.pixelFormat || !WebGPU.Texture.supportsResolve(resolveTarget.format(), m_device.ptr()) {
+                if mtlTexture.sampleCount == 1 || resolveTexture.sampleCount != 1 || isMultisampleTexture(texture: resolveTexture) || !isMultisampleTexture(texture: mtlTexture) || !isRenderableTextureView(texture: resolveTarget) || mtlTexture.pixelFormat != resolveTexture.pixelFormat || !WebGPU.Texture.supportsResolve(resolveTarget.format(), m_device.ptr()) {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "resolve target is invalid")
                 }
 
@@ -1066,12 +1073,12 @@ extension WebGPU.CommandEncoder {
             }
 
             if zeroColorTargets {
-                mtlDescriptor.defaultRasterSampleCount = metalDepthStencilTexture!.sampleCount
+                mtlDescriptor.defaultRasterSampleCount = metalDepthStencilTexture.sampleCount
                 if mtlDescriptor.defaultRasterSampleCount == 0 {
                     return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "no color targets and depth-stencil texture is nil")
                 }
-                mtlDescriptor.renderTargetWidth = metalDepthStencilTexture!.width
-                mtlDescriptor.renderTargetHeight = metalDepthStencilTexture!.height
+                mtlDescriptor.renderTargetWidth = metalDepthStencilTexture.width
+                mtlDescriptor.renderTargetHeight = metalDepthStencilTexture.height
             }
         }
 
@@ -1135,13 +1142,21 @@ extension WebGPU.CommandEncoder {
         if !m_device.ptr().isValid() {
             return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "GPUDevice was invalid, this will be an error submitting the command buffer")
         }
+        guard m_commandBuffer != nil else {
+            WebGPU_Internal.logString("command buffer is nil")
+            return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "m_commandBuffer is nil")
+        }
 
-        let mtlRenderCommandEncoder = m_commandBuffer.makeRenderCommandEncoder(descriptor: mtlDescriptor)
+        let mtlRenderCommandEncoder = m_commandBuffer!.makeRenderCommandEncoder(descriptor: mtlDescriptor)
         if (m_existingCommandEncoder != nil)  {
             assertionFailure("!m_existingCommandEncoder")
         }
+        guard mtlRenderCommandEncoder != nil, visibilityResultBuffer != nil else {
+            WebGPU_Internal.logString("mtlRenderCommandEncoder/visibilityResultBuffer is nil")
+            return WebGPU.RenderPassEncoder.createInvalid(self, m_device.ptr(), "mtlRenderCommandEncoder/visibilityResultBuffer is nil")
+        }
         setExistingEncoder(mtlRenderCommandEncoder)
-        return WebGPU.RenderPassEncoder.create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, self, visibilityResultBuffer, maxDrawCount, m_device.ptr(), mtlDescriptor)
+        return WebGPU.RenderPassEncoder.create(mtlRenderCommandEncoder!, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, self, visibilityResultBuffer!, maxDrawCount, m_device.ptr(), mtlDescriptor)
 
     }
     static func hasValidDimensions(dimension: WGPUTextureDimension, width: UInt, height: UInt, depth: UInt) -> Bool {
@@ -1180,7 +1195,10 @@ extension WebGPU.CommandEncoder {
         guard let blitCommandEncoder = ensureBlitCommandEncoder() else {
             return
         }
-        blitCommandEncoder.copy(from: source.buffer(), sourceOffset: Int(sourceOffset), to: destination.buffer(), destinationOffset: Int(destinationOffset), size: Int(size))
+        guard destination.buffer() != nil, source.buffer() != nil else {
+            return
+        }
+        blitCommandEncoder.copy(from: source.buffer()!, sourceOffset: Int(sourceOffset), to: destination.buffer()!, destinationOffset: Int(destinationOffset), size: Int(size))
     }
 
     public func copyTextureToBuffer(source: WGPUImageCopyTexture, destination: WGPUImageCopyBuffer, copySize: WGPUExtent3D) {
@@ -1228,12 +1246,14 @@ extension WebGPU.CommandEncoder {
         let heightForMetal = logicalSize.height < source.origin.y ? 0 : min(copySize.height, logicalSize.height - source.origin.y)
         let depthForMetal = logicalSize.depthOrArrayLayers < source.origin.z ? 0 : min(copySize.depthOrArrayLayers, logicalSize.depthOrArrayLayers - source.origin.z)
 
-        guard let destinationBuffer = apiDestinationBuffer.buffer() else {
+        let destinationBuffer = apiDestinationBuffer.buffer()
+        if destinationBuffer == nil {
+            WebGPU_Internal.logString("destinationBuffer is nil. Should not be.")
             return
         }
         var destinationBytesPerRow = UInt(destination.layout.bytesPerRow)
         if (destinationBytesPerRow == WGPU_COPY_STRIDE_UNDEFINED) {
-            destinationBytesPerRow = UInt(destinationBuffer.length)
+            destinationBytesPerRow = UInt(destinationBuffer!.length)
         }
 
         let sourceTextureFormat = sourceTexture.format()
@@ -1365,7 +1385,7 @@ extension WebGPU.CommandEncoder {
             return
         }
 
-        guard destinationBuffer.length >= WebGPU.Texture.bytesPerRow(aspectSpecificFormat, widthForMetal, sourceTexture.sampleCount()) else {
+        guard destinationBuffer!.length >= WebGPU.Texture.bytesPerRow(aspectSpecificFormat, widthForMetal, sourceTexture.sampleCount()) else {
             return
         }
 
@@ -1397,16 +1417,20 @@ extension WebGPU.CommandEncoder {
                         return
                     }
                     let sum = UInt(destinationOffset) + UInt(widthTimesBlockSize)
-                    if sum > destinationBuffer.length {
+                    if sum > destinationBuffer!.length {
                         continue
                     }
+                    guard sourceTexture.texture() != nil else {
+                        WebGPU_Internal.logString("sourceTexture.texture() is nil in copyTextureToBuffer. Should not be.")
+                        return
+                    }
                     blitCommandEncoder.copy(
-                        from: sourceTexture.texture(),
+                        from: sourceTexture.texture()!,
                         sourceSlice: Int(sourceSlice),
                         sourceLevel: Int(source.mipLevel),
                         sourceOrigin: sourceOrigin,
                         sourceSize: sourceSize,
-                        to: destinationBuffer,
+                        to: destinationBuffer!,
                         destinationOffset: Int(destinationOffset),
                         destinationBytesPerRow: Int(destinationBytesPerRow),
                         destinationBytesPerImage: Int(destinationBytesPerImage),
@@ -1433,13 +1457,17 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
+                    guard sourceTexture.texture() != nil else {
+                        WebGPU_Internal.logString("sourceTexture.texture() is nil in copyTextureToBuffer. Should not be.")
+                        return
+                    }
                     blitCommandEncoder.copy(
-                        from: sourceTexture.texture(),
+                        from: sourceTexture.texture()!,
                         sourceSlice: Int(sourceSlice),
                         sourceLevel: Int(source.mipLevel),
                         sourceOrigin: sourceOrigin,
                         sourceSize: sourceSize,
-                        to: destinationBuffer,
+                        to: destinationBuffer!,
                         destinationOffset: Int(destinationOffset),
                         destinationBytesPerRow: Int(destinationBytesPerRow),
                         destinationBytesPerImage: Int(destinationBytesPerImage),
@@ -1449,13 +1477,18 @@ extension WebGPU.CommandEncoder {
                 let sourceSize = MTLSizeMake(Int(widthForMetal), Int(heightForMetal), Int(depthForMetal))
                 let sourceOrigin = MTLOriginMake(Int(source.origin.x), Int(source.origin.y), Int(source.origin.z))
                 let destinationOffset = UInt(destination.layout.offset)
+            
+                guard sourceTexture.texture() != nil else {
+                    WebGPU_Internal.logString("sourceTexture.texture() is nil in copyTextureToBuffer. Should not be.")
+                    return
+                }
                 blitCommandEncoder.copy(
-                    from: sourceTexture.texture(),
+                    from: sourceTexture.texture()!,
                     sourceSlice: 0,
                     sourceLevel: Int(source.mipLevel),
                     sourceOrigin: sourceOrigin,
                     sourceSize: sourceSize,
-                    to: destinationBuffer,
+                    to: destinationBuffer!,
                     destinationOffset: Int(destinationOffset),
                     destinationBytesPerRow: Int(destinationBytesPerRow),
                     destinationBytesPerImage: Int(destinationBytesPerImage),
@@ -1491,11 +1524,13 @@ extension WebGPU.CommandEncoder {
             return 
         }
         var sourceBytesPerRow: UInt = UInt(source.layout.bytesPerRow)
-        guard let sourceBuffer = apiBuffer.buffer() else {
-            return
+        let sourceBuffer = apiBuffer.buffer()
+        if sourceBuffer == nil {
+            WebGPU_Internal.logString("source buffer is nil")
         }
+        precondition(sourceBuffer != nil, "source buffer is nil")
         if sourceBytesPerRow == WGPU_COPY_STRIDE_UNDEFINED {
-            sourceBytesPerRow = UInt(sourceBuffer.length)
+            sourceBytesPerRow = UInt(sourceBuffer!.length)
         }
         let aspectSpecificFormat = WebGPU.Texture.aspectSpecificFormat(destinationTexture.format(), destination.aspect)
         let blockSize = WebGPU.Texture.texelBlockSize(aspectSpecificFormat)
@@ -1637,7 +1672,7 @@ extension WebGPU.CommandEncoder {
             }
             return
         }
-        guard sourceBuffer.length >= WebGPU.Texture.bytesPerRow(aspectSpecificFormat, widthForMetal, destinationTexture.sampleCount()) else {
+        guard sourceBuffer!.length >= WebGPU.Texture.bytesPerRow(aspectSpecificFormat, widthForMetal, destinationTexture.sampleCount()) else {
             return
         }
         switch destinationTexture.dimension() {
@@ -1678,11 +1713,11 @@ extension WebGPU.CommandEncoder {
                     guard !didOverflow else {
                         return
                     }
-                    guard sourceOffsetPlusSourceBytesPerRow <= sourceBuffer.length else {
+                    guard sourceOffsetPlusSourceBytesPerRow <= sourceBuffer!.length else {
                         return
                     }
                     blitCommandEncoder.copy(
-                        from: sourceBuffer,
+                        from: sourceBuffer!,
                         sourceOffset: Int(sourceOffset),
                         sourceBytesPerRow: Int(sourceBytesPerRow),
                         sourceBytesPerImage: Int(sourceBytesPerImage),
@@ -1721,7 +1756,7 @@ extension WebGPU.CommandEncoder {
                         return
                     }
                     blitCommandEncoder.copy(
-                        from: sourceBuffer,
+                        from: sourceBuffer!,
                         sourceOffset: Int(sourceOffset),
                         sourceBytesPerRow: Int(sourceBytesPerRow),
                         sourceBytesPerImage: Int(sourceBytesPerImage),
@@ -1744,7 +1779,7 @@ extension WebGPU.CommandEncoder {
                 let destinationOrigin = MTLOriginMake(Int(destination.origin.x), Int(destination.origin.y), Int(destination.origin.z))
                 let sourceOffset = UInt(source.layout.offset)
                 blitCommandEncoder.copy(
-                    from: sourceBuffer,
+                    from: sourceBuffer!,
                     sourceOffset: Int(sourceOffset),
                     sourceBytesPerRow: Int(sourceBytesPerRow),
                     sourceBytesPerImage: Int(sourceBytesPerImage),
@@ -1792,13 +1827,16 @@ extension WebGPU.CommandEncoder {
             return
         }
         let range = offsetInt..<(offsetInt + sizeInt)
-        if buffer.isDestroyed() || sizeInt == 0 || range.upperBound > buffer.buffer().length {
+        guard buffer.buffer() != nil else {
+            return
+        }
+        if buffer.isDestroyed() || sizeInt == 0 || range.upperBound > buffer.buffer()!.length {
             return
         }
         guard let blitCommandEncoder = ensureBlitCommandEncoder() else {
             return
         }
-        blitCommandEncoder.fill(buffer: buffer.buffer(), range: range, value: 0)
+        blitCommandEncoder.fill(buffer: buffer.buffer()!, range: range, value: 0)
     }
 
     public func resolveQuerySet(_ querySet: WebGPU.QuerySet, firstQuery: UInt32, queryCount: UInt32, destination: WebGPU.Buffer, destinationOffset:UInt64)
@@ -1822,10 +1860,10 @@ extension WebGPU.CommandEncoder {
             return
         }
         if querySet.type().rawValue == WGPUQueryType_Occlusion.rawValue {
-            guard let sourceOffset = Int(exactly: 8 * firstQuery), let destinationOffsetChecked = Int(exactly: destinationOffset), let size = Int(exactly: 8 * queryCount) else {
+            guard let sourceOffset = Int(exactly: 8 * firstQuery), let destinationOffsetChecked = Int(exactly: destinationOffset), let size = Int(exactly: 8 * queryCount), destination.buffer() != nil else {
                 return
             }
-            blitCommandEncoder.copy(from: querySet.visibilityBuffer(), sourceOffset: sourceOffset, to: destination.buffer(), destinationOffset: destinationOffsetChecked, size: size)
+            blitCommandEncoder.copy(from: querySet.visibilityBuffer(), sourceOffset: sourceOffset, to: destination.buffer()!, destinationOffset: destinationOffsetChecked, size: size)
         }
     }
     public func validateResolveQuerySet(querySet: WebGPU.QuerySet, firstQuery: UInt32, queryCount: UInt32, destination: WebGPU.Buffer, destinationOffset: UInt64) -> Bool
@@ -2055,8 +2093,11 @@ extension WebGPU.CommandEncoder {
         guard error == nil else {
             return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), String(error!))
         }
+        guard m_commandBuffer != nil else {
+            return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), "m_commandBuffer buffer is nil.")
+        }
 
-        guard m_commandBuffer.status.rawValue < MTLCommandBufferStatus.enqueued.rawValue else {
+        guard (m_commandBuffer?.status.rawValue)! < MTLCommandBufferStatus.enqueued.rawValue else {
             return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), "command buffer has already been committed")
         }
 
@@ -2074,14 +2115,14 @@ extension WebGPU.CommandEncoder {
 
         if m_device.ptr().enableEncoderTimestamps() || counterSampleBuffer != nil {
             let timestampWrites = descriptor.timestampWrites
-            computePassDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer != nil ? computePassDescriptor.sampleBufferAttachments[0].sampleBuffer : m_device.ptr().timestampsBuffer(m_commandBuffer, 2)
+            computePassDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer != nil ? computePassDescriptor.sampleBufferAttachments[0].sampleBuffer : m_device.ptr().timestampsBuffer(m_commandBuffer!, 2)
             computePassDescriptor.sampleBufferAttachments[0].startOfEncoderSampleIndex = timestampWrites != nil ? Int(timestampWrites.pointee.beginningOfPassWriteIndex) : 0
             computePassDescriptor.sampleBufferAttachments[0].endOfEncoderSampleIndex = timestampWrites != nil ? Int(timestampWrites.pointee.endOfPassWriteIndex) : 1
             if counterSampleBuffer != nil {
-                m_device.ptr().trackTimestampsBuffer(m_commandBuffer, counterSampleBuffer);
+                m_device.ptr().trackTimestampsBuffer(m_commandBuffer!, counterSampleBuffer!);
             }
         }
-        guard let computeCommandEncoder = m_commandBuffer.makeComputeCommandEncoder(descriptor: computePassDescriptor) else {
+        guard let computeCommandEncoder = m_commandBuffer!.makeComputeCommandEncoder(descriptor: computePassDescriptor) else {
             return WebGPU.ComputePassEncoder.createInvalid(self, m_device.ptr(), "computeCommandEncoder is null")
         }
 

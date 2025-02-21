@@ -53,8 +53,11 @@ extension WebGPU.Queue {
         else {
             return
         }
+        guard buffer.buffer() != nil else {
+            return
+        }
         blitCommandEncoder.copy(
-            from: tempBuffer, sourceOffset: 0, to: buffer.buffer(),
+            from: tempBuffer, sourceOffset: 0, to: buffer.buffer()!,
             destinationOffset: Int(bufferOffset),
             size: data.size())
         if noCopy {

@@ -46,6 +46,7 @@
 #import <wtf/Vector.h>
 #import <wtf/text/WTFString.h>
 
+NS_ASSUME_NONNULL_BEGIN
 struct WGPUDeviceImpl {
 };
 
@@ -134,7 +135,7 @@ public:
     const Vector<WGPUFeatureName>& features() const { return m_capabilities.features; }
     const HardwareCapabilities::BaseCapabilities& baseCapabilities() const { return m_capabilities.baseCapabilities; }
 
-    id<MTLDevice> device() const { return m_device; }
+    id<MTLDevice> _Nullable device() const { return m_device; }
     void generateAValidationError(NSString * message);
     void generateAValidationError(String&& message);
     void generateAnOutOfMemoryError(String&& message);
@@ -162,8 +163,8 @@ public:
         return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
     }
 
-    id<MTLBuffer> newBufferWithBytes(const void*, size_t, MTLResourceOptions) const;
-    id<MTLBuffer> newBufferWithBytesNoCopy(void*, size_t, MTLResourceOptions) const;
+    id<MTLBuffer> _Nullable newBufferWithBytes(const void*, size_t, MTLResourceOptions) const;
+    id<MTLBuffer> _Nullable newBufferWithBytesNoCopy(void*, size_t, MTLResourceOptions) const;
     id<MTLTexture> newTextureWithDescriptor(MTLTextureDescriptor *, IOSurfaceRef = nullptr, NSUInteger plane = 0) const;
 
     static bool isStencilOnlyFormat(MTLPixelFormat);
@@ -182,7 +183,7 @@ public:
     id<MTLFunction> icbCommandClampFunction(MTLIndexType);
     id<MTLRenderPipelineState> copyIndexIndirectArgsPipeline(NSUInteger rasterSampleCount);
     id<MTLBuffer> safeCreateBuffer(NSUInteger length, MTLStorageMode, MTLCPUCacheMode = MTLCPUCacheModeDefaultCache, MTLHazardTrackingMode = MTLHazardTrackingModeDefault) const;
-    id<MTLBuffer> safeCreateBuffer(NSUInteger) const;
+    id<MTLBuffer> _Nullable safeCreateBuffer(NSUInteger) const;
     void loseTheDevice(WGPUDeviceLostReason);
     int bufferIndexForICBContainer() const;
     void setOwnerWithIdentity(id<MTLResource>) const;
@@ -302,3 +303,4 @@ inline void derefDevice(WebGPU::Device* obj)
 {
     WTF::deref(obj);
 }
+NS_ASSUME_NONNULL_END

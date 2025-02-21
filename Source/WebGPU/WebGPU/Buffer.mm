@@ -402,7 +402,7 @@ void Buffer::unmap()
         return;
 
     decrementBufferMapCount();
-    indirectBufferInvalidated();
+    indirectBufferInvalidatedPtr();
 
 #if CPU(X86_64) && (PLATFORM(MAC) || PLATFORM(MACCATALYST))
     if (m_buffer.storageMode == MTLStorageModeManaged) {
@@ -712,7 +712,7 @@ void Buffer::indirectIndexedBufferRecomputed(MTLIndexType indexType, NSUInteger 
 
 void Buffer::indirectBufferInvalidated(CommandEncoder& commandEncoder)
 {
-    indirectBufferInvalidated();
+    indirectBufferInvalidatedPtr();
 
     commandEncoder.addOnCommitHandler([weakThis = ThreadSafeWeakPtr { *this }, weakCommandEncoder = WeakPtr { commandEncoder }](CommandBuffer&) {
         if (!weakThis.get() || !weakCommandEncoder)
@@ -720,12 +720,12 @@ void Buffer::indirectBufferInvalidated(CommandEncoder& commandEncoder)
 
         RefPtr protectedThis = weakThis.get();
         RefPtr commandEncoder = weakCommandEncoder.get();
-        protectedThis->indirectBufferInvalidated(commandEncoder.get());
+        protectedThis->indirectBufferInvalidatedPtr(commandEncoder.get());
         return true;
     });
 }
 
-void Buffer::indirectBufferInvalidated(CommandEncoder* commandEncoder)
+void Buffer::indirectBufferInvalidatedPtr(CommandEncoder* commandEncoder)
 {
     if (!(m_usage & (WGPUBufferUsage_Indirect | WGPUBufferUsage_Index)))
         return;
